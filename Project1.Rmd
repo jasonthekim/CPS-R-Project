@@ -1,0 +1,378 @@
+---
+title: "Investigating Child Removals Within CPS (Child Protection Services) in the Context of Other Public Services"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+
+### Jason Kim jk46965, Sina Saberi ss88896
+
+------------------------------------------------------------------------
+
+# Introduction 
+
+**For the Texas Removal's dataset (from Texas.gov), this dataset provides information on child removals by region in Texas along with demographic information such as gender, race/ethnicity, and age. The data is provided by the Texas Department of Family and Protective Services (DFPS) and covers the period from 2013 to 2022. Each row in the dataset represents one removal event and includes information on the fiscal year, region, removal stage, gender, race/ethnicity, age, and number of removals.  The removal stage is categorized as either during family protection or the investigative stage. The regions are defined by the DFPS and are based on the state's 12 Health and Human Services Commission (HHSC) regions.**
+
+**This dataset can be useful for researchers, policymakers, and others interested in understanding the characteristics of child removals in Texas over time and by region. It could also be used to identify trends or disparities in child removal rates across demographic groups.** 
+
+**The Families Receiving Kinship Monetary Assistance dataset  (Texas.gov) is another dataset that provides information on families receiving monetary assistance through the Texas Kinship Caregiver Program, which is a program that provides financial assistance to eligible relatives who care for children in their homes due to a child's removal from their biological parents. The dataset covers the period from 20103to 2022 and is also provided by the Texas Department of Family and Protective Services (DFPS). Each row in the dataset represents one county and includes information on the fiscal year, county, region, and the number of families receiving monetary assistance through the program. The regions are based on the state's 12 Health and Human Services Commission (HHSC) regions. The program provides eligible families with monthly financial assistance to cover the basic needs of the children in their care, such as food, clothing, and shelter. This dataset can be useful for researchers, policymakers, and others interested in understanding the characteristics of families receiving monetary assistance through the Texas Kinship Caregiver Program over time and by county. It could also be used to identify trends or disparities in program utilization across different regions of the state.**
+
+**While these datasets contain different information on child welfare services in Texas, it is possible that they could be joined using common variables such as county/region or year, if present in both datasets. For example, if both datasets include the region variable, they could be joined using that variable to compare the number of families receiving monetary assistance through the Texas Kinship Caregiver Program to the number of removals in each region. This could provide insights into how well the program is meeting the needs of families who have had children removed from their homes. In terms of variable types, the first dataset contains a mix of categorical and numeric variables. Categorical variables include gender, race/ethnicity, and removal stage, while numeric variables include age and number of removals. The second dataset contains mostly categorical variables, with the exception of the number of families receiving monetary assistance which is a numeric variable. Potential relationships between variables in the first dataset could include examining whether certain demographic groups are overrepresented in removals or whether removal rates vary by region. In the second dataset, potential relationships could include examining whether the number of families receiving monetary assistance varies by county or region, or whether there are any trends over time in the number of families receiving assistance.**
+
+**Overall, these datasets provide valuable insights into child welfare services in Texas and can be used to identify potential areas for improvement in the state's approach to child welfare.**
+
+**Our research questions, thus, are: (1) How does kinship assistance affect the removal status of children? (2) How does the average hold time for all calls affect the removal number of children, and further how does the removal status affect this relationship?.**
+
+# Tidying
+
+Here, we make sure that our datasets are tidy. 
+
+```{r}
+# get proper libraries
+library(dplyr)  
+library(tidyverse)
+
+kinship_assistance <- read.csv("~/Project1/Families Receiving Kinship Assistance.csv")
+Removal_by_Region <- read.csv("~/Project1/Removal by Region.csv")
+hot_lines <- read.csv("~/Project1/SWI_1.2_Phone_Calls_by_Hold_Time__Handled__and_Abandoned_FY2013-2022.csv")
+
+# tidying Kinship_Assistance to merge/join later without issues
+kinship_assistance_2 <- kinship_assistance %>% select(-County) # remove county
+
+# compress data for each region into one row
+kinship_assistance_2 <- kinship_assistance_2 %>%
+  group_by(Region, Fiscal.Year) %>%
+  summarize(total_families_receiving_kinship_money = sum(`Familes.Receiving.Kinship.Caregiver.Monetary.Assistance`))
+
+kinship_assistance_2
+```
+
+**Looking at our datasets, all of them were generally tidy; however, we had to "wrangle" our 'kinship_assistance' dataset to where all of the families receiving kinship monetary assistance for a given county within a given region for a given year (between 2013-2022) were summed and aggregated into data entries of the total number of families receiving kinship assistance for a given region within a given year. This process would allow us to properly merge our three datasets in the following section.**
+
+------------------------------------------------------------------------
+
+# Joining/Merging
+
+## Joining all 3 datasets
+```{r}
+# made initial join between removal and kinship datasets by 'Region'
+join1 <- inner_join(Removal_by_Region, kinship_assistance_2, by = "Region") %>%
+  mutate(Fiscal.Year = Fiscal.Year.x) %>%
+  select(-Fiscal.Year.x)
+
+# make a final join, combining last dataset 'hot_lines' by 'Fiscal.Year'
+final_join <- inner_join(join1, hot_lines, by = "Fiscal.Year") %>%
+  mutate(Fiscal.Year = Fiscal.Year.y) %>%
+  select(-Fiscal.Year.y)
+```
+
+**In approaching this section, we opted against a single join and rather decided to make two separate joins because we realized there were more than one common ID variable. The first initial inner_join() was made between the the 'kinship_assistance_2' and 'Removal_by_Region' datasets by 'Region'. Thereafter we made a final join, merging the last dataset 'hot_lines' by 'Fiscal.Year' with the previously joined datasets.**
+
+------------------------------------------------------------------------
+
+## Total Observations in each dataset before joining
+```{r}
+# check num of observations in each dataset
+nrow(Removal_by_Region) 
+nrow(kinship_assistance_2)  
+nrow(hot_lines) 
+```
+
+**In order to obtain the total observations in each dataset, we simply used the nrow() function to see how many observations there were in each dataset. We can see that there are 28056 observations for 'Removal_by_Region', 120 observations for 'kinship_assistance_2', and 90 observations for 'hot_lines'.**
+
+------------------------------------------------------------------------
+
+## Number of IDs that appear in one dataset but not the other
+```{r}
+# Find num of variables that appear in removal_by_region but not in hot_lines
+length(unique(colnames(Removal_by_Region)[!colnames(Removal_by_Region) %in% colnames(hot_lines) & !colnames(Removal_by_Region) %in% colnames(kinship_assistance_2)]))
+
+# Find num of variables that appear in hot_lines but not in removal_by_region
+length(unique(colnames(hot_lines)[!colnames(hot_lines) %in% colnames(Removal_by_Region) & !colnames(hot_lines) %in% colnames(kinship_assistance_2)]))
+
+# Find num of variables that appear in kinship_assistance_2 but not in removal_by_region
+length(unique(colnames(kinship_assistance_2)[!colnames(kinship_assistance_2) %in% colnames(Removal_by_Region) & !colnames(kinship_assistance_2) %in% colnames(hot_lines)]))
+```
+
+**In order to find the number of IDs that appear in one dataset but not the other, we decided to utilize the unique() function and !colnames() to find the columns in a dataset that are not present in the other. As a result, we are able to see that there are 5 IDs that appear in 'Removal_by_Region' but not in 'hot_lines', 7 IDs that appear in 'hot_lines' but not in 'removal_by_region', and 1 ID that appears in 'kinship_assistance_2' but not in 'Removal_by_Region'.**
+
+------------------------------------------------------------------------
+
+## Number of IDs in common
+```{r}
+# Find common columns between Removal_by_Region and hot_lines datasets
+common_cols_1 <- intersect(names(Removal_by_Region), names(hot_lines))
+
+# Find common columns between common_cols_1 and kinship_assistance_2 datasets
+common_cols_all <- intersect(common_cols_1, names(kinship_assistance_2))
+
+# Print the number of common columns
+length(common_cols_all)
+```
+
+**Here, in order to obtain the number of IDs in common, we utilized the intersect() function to collect the number of columns between datasets, and used the length() function to obtain the number of common IDs.**
+
+------------------------------------------------------------------------
+
+## Number of IDs that may have been left out after joining
+```{r}
+# Get the column names of the original datasets
+removal_cols <- colnames(Removal_by_Region)
+kinship_cols <- colnames(kinship_assistance_2)
+hot_cols <- colnames(hot_lines)
+
+# Get the column names of the final joined dataset
+final_cols <- colnames(final_join)
+
+# Find the columns that are in the original datasets but not in the final joined dataset
+left_out_cols <- c(setdiff(removal_cols, final_cols), setdiff(kinship_cols, final_cols), setdiff(hot_cols, final_cols))
+
+# Print the left out columns
+left_out_cols
+
+```
+
+**In order to find the number of IDs that may have been left out after joining, we took note of the column names of each of the original datasets and the final joined dataset. Thereafter, we used the setdiff() function to find the columns that are in the original datasets but not in the final joined dataset. We can see that there were no number of IDs that were left out after joining.**
+
+------------------------------------------------------------------------
+
+## How many observations/rows dropped/added when joining datasets
+```{r}
+# total number of rows before the join
+nrow(Removal_by_Region) + nrow(kinship_assistance_2) + nrow(hot_lines)
+
+# total number of rows after the join
+nrow(final_join) 
+
+# difference in rows
+nrow(final_join) - (nrow(Removal_by_Region) + nrow(kinship_assistance_2) + nrow(hot_lines))
+```
+
+**There are no potential issues, as the number of observations in the final join is the same as what we had expected it to be. The difference in the number of observations before and after joining the datasets is because the join operation creates a new dataset that contains every possible combination of matching rows from the three original datasets. To be specific, the 'kinship_assistance_2' dataset and the 'removal_by_regions', when combined, do not lead to additional observations because of the parity between the number of original data values from 'Removal_by_Region' and the number of data values added by 'kinship_assistance_2' based on the common ID of region. Furthermore, the total number of observations in the final merge is ~2.5 million because for every observation in the join_1 (first merge of the 'kinship' and 'removal' datasets) there were 90 unique observations from the 'hot_lines' dataset.**
+
+------------------------------------------------------------------------
+
+# Wrangling
+
+**If you look back to the *tidying* section, we actually wrangled our 'kinship_assistance' dataset and saved it as 'kinship_assistance_2' to help merge/join our three datasets. For more information, please refer back to the *tidying* section, where we discuss the process we took and the functions used. To note, we have already used select, arrange, group_by, mutate, and summarize functions, leaving the filter function. In this section, we perform more wrangling to fulfill the requirements of using all functions.**
+
+------------------------------------------------------------------------
+
+## Computing summary statistics of numerical variables to filter outlier(s)
+```{r}
+# find the statistical summary of kinship_assistance_2 to find outliers
+summary(kinship_assistance_2$total_families_receiving_kinship_money)
+
+# find the statistical summary of hot_lines average time calls to find outliers
+summary(hot_lines$Average.Hold.Time.for.All.Calls)
+
+# find the statistical summary of removals from Removal_by_Region dataset to find outliers
+summary(Removal_by_Region$Removals)
+
+# found outlier(s) in Removal_by_Region dataset of num of removals, so we filter them out
+Removal_by_Region_Wrangle <- Removal_by_Region
+
+final_join_wrangle <- final_join
+
+# use summarize() to get num of 'Removals' outliers from 'Removal_by_Region'
+view(Removal_by_Region %>% 
+  summarize(sum(Removals > 15)))
+```
+
+**In computing the summary statistics of numerical variables from our datasets, our main goal was to find outliers in the data to later filter out. We analyzed four numerical variables: 'total_families_receiving_kinship_money' from 'kinship_assistance_2'; 'Average.Hold.Time.for.All.Calls' from 'hot_lines'; and 'Removals' from 'Removal_by_Region'.**
+
+**In order to find if there were any outliers present, we used the summary() function to get the relevant summary statistics, shown above, to perform the relevant method for detecting an outlier (i.e. IQR median-based method).**
+
+**As a result, we found that for the variables, 'total_families_receiving_kinship_money' and 'Average.Hold.Time.for.All.Calls', the minimum and maxmimum values were within the standard error range - that is, less than 1.5 IQR away from Q3 or Q1. However, for the variable, 'Removals' from 'Removal_by_Region' dataset, we observed that there were 3003 outliers present that were more than 1.5 IQR above Q3.**
+
+**Thus, we filtered out all the values greater than or equal to value of 15 (num of removals) in the 'Removal_by_Region' dataset to avoid having our data analysis becoming confounded and skewed by such extreme outliers. In conclusion, all of these numerical variables were heavily right skewed and benefited from our summary statistics analysis and filtering.**
+
+------------------------------------------------------------------------
+
+## Creating categorical variables from numerical variables
+```{r}
+# create categorical variable from numerical age values from Removal_by_Region
+Removal_by_Region_Wrangle <- Removal_by_Region_Wrangle %>%
+  mutate(Developmental_Status = cut(Age, breaks = c(-1, 1, 3, 5, 11, 14, 17),
+                            labels = c("Infant", "Toddler", "Preschooler", "Middle Childhood", "Young Teen", "Teenager")))
+
+# create categorical variables from numerical fiscal.year from Removal_by_Region
+Removal_by_Region_Wrangle <- Removal_by_Region_Wrangle %>%
+  arrange(Fiscal.Year) %>% # use arrange() to arrange fiscal.years asc order
+  mutate(Year_Categorical = cut(Fiscal.Year, breaks = c(2012:2022),
+                            labels = c("2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022")))
+
+# update our final_join_wrangle accordingly
+final_join_wrangle <- final_join_wrangle %>%
+  mutate(Developmental_Status = cut(Age, breaks = c(-1, 1, 3, 5, 11, 14, 17),
+                            labels = c("Infant", "Toddler", "Preschooler", "Middle Childhood", "Young Teen", "Teenager")))
+
+final_join_wrangle <- final_join_wrangle %>%
+  arrange(Fiscal.Year) %>% # use arrange() to arrange fiscal.years asc order
+  mutate(Year_Categorical = cut(Fiscal.Year, breaks = c(2012:2022),
+                            labels = c("2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022")))
+```
+
+**Here, we decided to create two categorical variables: 'Developmental_Status' and 'Year_Categorical' in both the 'Removal_by_Region' and 'final_join_wrangle' datasets. The 'Developmental_Status' variable was created based on the 'Age' numerical variable, where we assigned categories to certain age ranges (i.e. ages 0-1 would represent infants, ages 4-5 represent toddlers etc.).** 
+
+**We utilized the mutate() and cut() functions to accomplish such a task. Similarly, we created the 'Year_Categorical' variable based upon the numerical variable 'Fiscal.Year', using the same functions as earlier.**
+
+**The purpose of the first mutation/cut operation was so that we could translate the children's age to their developmental status and see how it might be associated with proportion of children of each age category that have a removal status.** 
+
+**For the second operation, we converted the years to a categorical variable to allow for future use of this variable in visualizations involving bar plots and pie charts (or other categorical visualization methods).**
+
+------------------------------------------------------------------------
+
+## Possible and optional filtering
+```{r}
+# possible and optional filtering of unknown genders.
+Removal_by_Region_Wrangle2 <- Removal_by_Region_Wrangle %>% filter(Gender != "Unknown")
+final_join_wrangle2 <- final_join_wrangle %>% filter(Gender != "Unknown")
+```
+
+**Since the children with unknown gender could potentially be either a male, a female, a non-binary, or other options, we will not specualte about their specific gender and its relationship with other variables. In order to avoid analyzing unkown gender children, we will utilize the filter function. However, it's important to note that this is an optional step because later when we do our visualizations, we want to include 'unknown' genders.**
+
+------------------------------------------------------------------------
+
+## Computing summary statistics of created categorical variable 'Development_Status' and 'Region'
+```{r}
+# Summaries for the two categorical variables of Developmental Status and Region
+prop.table(table(Removal_by_Region_Wrangle$Developmental_Status))
+prop.table(table(Removal_by_Region_Wrangle$Region))
+```
+
+**Here, we compute summary statistics of the 'Developmental_Status' and 'Region' categorical variables by using a prop.table() function that gives the proportion of each respective variable to the whole dataset. THe purpose of this analysis was to see if the values for either of these variables were associated with the variations in the number of 'Removals' cases.**
+
+------------------------------------------------------------------------
+
+# Visualization
+
+## Two plots of one variable
+```{r}
+#Two PLots of one variable (bar chart of Developmental Status & the box plot of total number of kinship assistance)
+
+# Plot 1 Bar chart Distribution of the Number of Children by Developmental Status
+ggplot(final_join_wrangle, aes(x = Developmental_Status)) +
+  geom_bar(fill="lightblue") +
+  labs(title="(1) Number of Children by Developmental Status", x="Developmental Status", y="Count") +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "gray"))
+  scale_y_continuous(limits = c(0, 800000), breaks = c(0, 100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000))
+  
+# Plot 2 Boxplot distribution of total number of kinship assistance
+ggplot(final_join_wrangle, aes(x = total_families_receiving_kinship_money)) +
+geom_boxplot() +
+labs(title = "(2) Boxplot of total number of kinship assistance", x = "Total Number of Kinship Assistance", y = "") +
+theme_minimal() +
+theme(axis.line.y = element_blank(),
+      axis.text.y = element_blank())
+
+```
+
+**Visualization (1) depicts the frequency of the children's ages for which the number of removals. We do not see any trends/relationships from the plot, as we are only viewing one variable.**
+
+**Visualization (2) depicts the spread of the total number of families receiving kinship monetary assistance for a given region in a box plot. There are no clear trends/relationships apparent, but we observe that the data is right skewed, indicating that most regions have roughly 550 or less families on kinship support and fewer counties above.**
+
+------------------------------------------------------------------------
+
+## Two plots for two variables
+```{r}
+# scatterplot of relationship between Kinship and Removals with regression line
+ggplot(final_join_wrangle, aes(x = Removals, y = total_families_receiving_kinship_money)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "darkorange") +
+  xlab("Number of Removals") +
+  ylab("Total Families Receiving Kinship Money") +
+  ggtitle("(3) Relationship between Kinship Money and Number of Removals") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 16, face = "bold", margin = margin(b = 10)),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank())
+
+# box plot kinship and developmental status
+ggplot(final_join_wrangle, aes(x=total_families_receiving_kinship_money, y=Developmental_Status)) + 
+  geom_boxplot(fill="#0072B2", alpha=0.5, outlier.shape=NA) +
+  labs(title="(4) Total Families Receiving Kinship Money by Developmental Status",
+       x="Total Families Receiving Kinship Money", y="Developmental Status") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 20, face = "bold"),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+```
+
+**Visualization (3) depicts the relationship between number removals of children and total families receiving kinship assistance. We observe that the regions with higher number of removals also have a higher rate of families receiving kinship support. One possibility for this is that families at risk are more likely to motivate their family members to support them.**
+
+**Visualization (4) depicts the relationship between the developmental status of the removal of children and the total families receiving kinship support. We observe that the regions with families of older children tend to receive more kinship money.**
+
+------------------------------------------------------------------------
+
+## 2 plots for 3 variables
+```{r}
+# scatter plot of avg hold time, removals, and facet wrapped by removal.stage
+ggplot(final_join_wrangle, aes(x = Average.Hold.Time.for.All.Calls, y = Removals)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  scale_x_continuous(name = "Average Hold Time for All Calls", limits = c(0, max(final_join_wrangle$Average.Hold.Time.for.All.Calls)*1.1)) +
+  scale_y_continuous(name = "Number of Removals", limits = c(0, max(final_join_wrangle$Removals)*1.1)) +
+  ggtitle("(5) Relationship between Average Hold Time and Number of Removals by Region") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, hjust = 0.5), 
+        legend.position = "bottom",
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14)) +
+  facet_wrap(~Removal.Stage)
+
+# box plot of kinship and developmental status with facet wrap of removal stage
+ggplot(final_join_wrangle, aes(x=total_families_receiving_kinship_money, y=Developmental_Status, fill=Removal.Stage)) + 
+  geom_boxplot() +
+  labs(title="(6) Total Families Receiving Kinship Money by Developmental Status and Removal Stage",
+       x="Total Families Receiving Kinship Money", y="Developmental Status") +
+  facet_wrap(~Removal.Stage, nrow=1) +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 20, face = "bold"),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "bottom")
+```
+**Visualization (5) depicts the relationship between the number of removals and average hold time for all calls, influenced by the removal status. There appears to be a relationship between the removal status and number of removals, specifically where investigations resulted in higher number of removals compared to family preservation.**
+
+**Visualization (6) depicts relationship between the developmental status of children removed for a given region and the total number of families receiving kinship money support. There appears to be minimal to no trend/relationship between all three variables involved.**
+
+------------------------------------------------------------------------
+
+# Discussion
+**We had two research questions: (1) How does kinship assistance affect the removal status of children? (2) How does the average hold time for all calls affect the removal number of children, and further how does the removal status affect this relationship?** 
+
+**As the wait time increases, the removal number increases proportionally, and this trend is intensified when the status of family protection is not extended (as seen in visualization (5). We observed the latter trend, but our original assumption of increased in the removal number as the hold time increases did not seem to be the case as longer hold times did not appear to make any difference.**
+
+**In completing this project, we faced several challenges. The most challenging aspect was successfully merging our three datasets without any issues and figuring out how we wanted to wrangle the data such that we could perform proper statistical analysis. Our group spent the most time debugging errors when trying to merge and wrangle our datasets, and along the way learned to rightly tackle our issues in formatting everything. Overarchingly, from this experience, we learned the importance of data engineering - that before starting the data analysis portion, it is vital to engineer that data such that it is readable, manageable, and capable of being analyzed.**
+
+**There were two members part of this group: Sina and Jason. For the most part, we worked together rather than splitting sections; however, Jason contributed primarily in the coding aspect of this project, helping debug several issues while merging, wrangling, and creating plots for the datasets, while Sina offered deep insight into the statistical analysis aspect of the project, answering important questions and making conclusions about our findings.**
+
+------------------------------------------------------------------------
+
+```{r, echo=F}
+## DO NOT DELETE THIS BLOCK!
+sessionInfo()
+```
