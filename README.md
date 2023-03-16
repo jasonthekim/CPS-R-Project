@@ -21,6 +21,7 @@ with monthly financial assistance to cover the basic needs of the children in th
 others interested in understanding the characteristics of families receiving monetary assistance
 through the Texas Kinship Caregiver Program over time and by county. It could also be used
 to identify trends or disparities in program utilization across different regions of the state.
+
 While these datasets contain different information on child welfare services in Texas, it is
 possible that they could be joined using common variables such as county/region or year,
 if present in both datasets. For example, if both datasets include the region variable, they
@@ -30,5 +31,13 @@ region. This could provide insights into how well the program is meeting the nee
 who have had children removed from their homes. In terms of variable types, the first dataset
 contains a mix of categorical and numeric variables. Categorical variables include gender,
 race/ethnicity, and removal stage, while numeric variables include age and number of removals.
-The second dataset contains mostly categorical variables, with the exception of the number
-of families receiving monetary assistance which is a numeric variable. Potential relationships
+The second dataset contains mostly categorical variables, with the exception of the number of families receiving monetary assistance which is a numeric variable. Potential relationships between variables in the first dataset could include examining whether certain demographic groups are overrepresented in removals or whether removal rates vary by region. In the second dataset, potential relationships could include examining whether the number of families receiving monetary assistance varies by county or region, or whether there are any trends over time in the number of families receiving assistance.
+
+Overall, these datasets provide valuable insights into child welfare services in Texas and can
+be used to identify potential areas for improvement in the state’s approach to child welfare.
+
+## Research Questions
+Our research questions, thus, are: (1) How does kinship assistance affect the removal status
+of children? (2) How does the average hold time for all calls affect the removal number of
+children, and further how does the removal status affect this relationship?.
+
