@@ -41,3 +41,15 @@ Our research questions, thus, are: (1) How does kinship assistance affect the re
 of children? (2) How does the average hold time for all calls affect the removal number of
 children, and further how does the removal status affect this relationship?.
 
+## Main Methods Used 
+- Data tidying
+- Data joining/merging
+- Data wrangling
+- Data visualization
+
+## Viewing RMD File
+The repository has a single RMD file containing the full project. A user can interact with the file in two ways:
+- Open the RMD file in R studio and run the code blocks one by one.
+- Open the RMD file in R studio and knit the file into a PDF/HTML/etc.
+
+It's important to note that the combined dataset contains over 2 million data points, so for the visualization section, the scatter plot will take a substantial time to run and generate the plot. 
